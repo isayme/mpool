@@ -15,7 +15,10 @@ mpool *mpool_create(size_t nblks, size_t blksize)
         return NULL;
     }
 
-    blksize = (blksize > sizeof(void *)) ? blksize : sizeof(void *);
+    blksize = (blksize > sizeof(void *)) ? blksize : sizeof(void *);  
+#if MPOOL_ENABLE_BLKSIZE_ALIGN > 0
+    blksize = (blksize + sizeof(void *) - 1) / sizeof(void *) * sizeof(void *);
+#endif
     
     mp = malloc(sizeof(mpool));
     if (NULL == mp) {
@@ -33,7 +36,11 @@ mpool *mpool_create(size_t nblks, size_t blksize)
         free(mp);
         return NULL;
     }
-    
+
+#if MPOOL_ENABLE_PTR_CHECK > 0
+    mp->addrend = mp->addr + nblks * blksize;
+#endif
+
     mp->freelist = mp->addr;
     
     loops = nblks - 1;
@@ -93,8 +100,19 @@ int mpool_free(mpool *mp, void *ptr)
 {
     if (NULL == mp
         || NULL == mp->addr
-        || NULL == ptr
-        || 0 != pthread_mutex_lock(&mp->mutex)) {
+        || NULL == ptr) {
+        return -1;
+    }
+
+#if MPOOL_ENABLE_PTR_CHECK > 0
+    if (mp->addr > ptr
+        || mp->addrend <= ptr
+        || 0 != ((ptr - mp->addr) % mp->blksize)) {
+        return -1;
+    }
+#endif
+
+    if (0 != pthread_mutex_lock(&mp->mutex)) {
         return -1;
     }
 

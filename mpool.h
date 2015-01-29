@@ -3,6 +3,12 @@
 
 #include <pthread.h>
 
+// check the validity of the memory to be freed;
+#define MPOOL_ENABLE_PTR_CHECK 1
+
+// align blksize for faster memory access;
+#define MPOOL_ENABLE_BLKSIZE_ALIGN 1
+
 typedef struct mpool {
     size_t nblks;
     size_t blksize;
@@ -11,6 +17,9 @@ typedef struct mpool {
     void *freelist;
     
     void *addr;
+#if MPOOL_ENABLE_PTR_CHECK > 0
+    void *addrend;
+#endif
     
     pthread_mutex_t mutex;
 } mpool;
