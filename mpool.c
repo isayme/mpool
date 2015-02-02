@@ -8,7 +8,6 @@ mpool *mpool_create(size_t nblks, size_t blksize)
     mpool *mp = NULL;
     void **pplink = NULL;
     void *pblk = NULL;
-    size_t loops;
     size_t i;
     
     if (0 >= nblks) {
@@ -20,12 +19,11 @@ mpool *mpool_create(size_t nblks, size_t blksize)
     blksize = (blksize + sizeof(void *) - 1) / sizeof(void *) * sizeof(void *);
 #endif
     
-    mp = malloc(sizeof(mpool));
+    mp = calloc(1, sizeof(mpool));
     if (NULL == mp) {
         return NULL;
     }
     
-    memset(mp, 0, sizeof(mpool));
     pthread_mutex_init(&mp->mutex, NULL);
     
     mp->nblks = nblks;
@@ -43,10 +41,9 @@ mpool *mpool_create(size_t nblks, size_t blksize)
 
     mp->freelist = mp->addr;
     
-    loops = nblks - 1;
     pblk = mp->addr;
     pplink = (void **)pblk;
-    for (i = 0; i < loops; i++) {
+    for (i = 1; i < nblks; i++) {
         pblk += blksize;
         *pplink = pblk;
         pplink = (void **)pblk;
@@ -100,19 +97,13 @@ int mpool_free(mpool *mp, void *ptr)
 {
     if (NULL == mp
         || NULL == mp->addr
-        || NULL == ptr) {
-        return -1;
-    }
-
+        || NULL == ptr
 #if MPOOL_ENABLE_PTR_CHECK > 0
-    if (mp->addr > ptr
+        || mp->addr > ptr
         || mp->addrend <= ptr
-        || 0 != ((ptr - mp->addr) % mp->blksize)) {
-        return -1;
-    }
+        || 0 != ((ptr - mp->addr) % mp->blksize)
 #endif
-
-    if (0 != pthread_mutex_lock(&mp->mutex)) {
+        || 0 != pthread_mutex_lock(&mp->mutex)) {
         return -1;
     }
 
